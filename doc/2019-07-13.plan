@@ -1,0 +1,113 @@
+Hello World!
+
+This is the repository for 'Aquamarine', my pet project this summer. This is a game directly inspired by Sea of Thieves,
+one of my favorite games lately. I had a vision recently: What would a 2D platformer "de-make" of Sea of Thieves look like?
+The more I thought about it, the more engaged I felt about the techniques & style that may bring this game to life. I'll be
+recording my thought process over time in these `.plan` files (cheers, John Carmack) -- consider these "official, informal"
+documentation.
+
+I'll let this initial `.plan` be longer & more detailed.
+
+The target device is the [Gamebuino META](gamebuino.com). I've been wishing, for some time, to create an original game for
+this community. It is my hope that Aquamarine, in any state of progress, can serve as learning material for more advanced
+programming. I aim to create a technically-impressive game in honor of Rare's amazing work (Sea of Thieves, Banjo-Kazooie,
+Donkey Kong Country, Battletoads, etc). My favorite kind of "technically impressive" is taking a restrictive system and doing
+the unthinkable with it. Squeezing out more optimization and features than you're expected to. The Gamebuino is powered by
+the Arduino Zero board, so we're dealing with C/C++03, 256KiB Flash (ROM), and 32KiB RAM. Included is a 160x128 OLED screen
+and a MicroSD card slot (and buttons, lighting, libraries, etc).
+
+First and foremost, we're making an open-world pirate game. That means water is going to be on-screen constantly, so it's
+worth investing some effort in doing it "right". My big priority is conveying depth, and perhaps the best, cheap way to achieve
+"depth" in a 2D game is *parallax scrolling*. I envision the player sailing among several foreground and background layers of
+sea. I'm not sure exactly how many layers are appropriate -- I'm going with "six" for now, may need to be less for performance
+reasons -- but this is an excellent thing to have decided up-front. If we assume the game will feature parallax scrolling, now
+we can look for other ways to apply it. I want to explore quickly how parallax can be applied to *land* as well, not just sea.
+This is what I want to test in my **first tech demo, by next Saturday (2019-07-20)**. The idea is that the entire world can be
+split across six-ish parallax layers, and that the "engine" (lack thereof, really) will angle the layers appropriately.
+
+Not to get ahead of myself, but style is important. I want to expand on 3D effects, parallax or other, to evoke the same sense
+Rare's 16-bit era games did. Now, Rare did it a much different way -- Donkey Kong Country was famous for rendering 3D models
+as pre-formed 2D sprites, which added a lot of depth with only a few parallax layers. I actually anticipate doing the
+opposite -- designing flatter, cartoony, exaggerated sprites akin to Earthworm Jim, but spreading a "realistic" environment
+across several layers.
+
+My initial thought is that the world will be built up of "prefabs" -- pre-fabricated objects like trees, bushes, rocks, and
+the ground itself. To allow any object to have depth, the main principle of "prefabs" is that they span several parallax
+layers, themselves. Ultimately a prefab has a number of sprites, laid on top of each other. Since these layers won't necessarily
+line-up with each other, each layer also defines an `x`,`y` offset and a `width` and `height` for itself.
+
+So if we choose to focus on depth, we're going to need the best pixel-resolution we can muster. For those unfamiliar with the
+Gamebuino META, it natively supports two screen modes: 160x128 with 4-bit color (16), or 80x64 with 16-bit color (65,536).
+The reason you "can't" run full-resolution *and* full-color is because: 16-bit color means two bytes per pixel, and 160x128x2
+is 40,960 bytes -- more than the Gamebuino's 32KiB. Either screen mode is about 10,240 bytes. So, we definitely want full-res,
+but is a 16-color palette enough to make the game "beautiful"? The short answer is "yes", but we need to think about *our*
+game, specifically. With six parallax layers, we're looking at 6 shades of blue, just for water. We'll need about 3 shades of
+green for islands (4 would be better), 3 shades of wood for trees/ships, 4 colors for the sky (white & grey for clouds,
+blue & black for day/night). Perfect -- we've allocated 16 colors, and we haven't even gotten to sprites/objects yet!
+
+At this point, I drew mockups in MS Paint between 160x128, and 80x64, to see if we really *need* the high resolution. "Yes."
+So we have to be very wise about selecting colors... or implement our own solution. Since I don't know how/who is going to be
+designing graphics for this game, I'm much more interested in implementing my own solution. If we choose to write our *own*
+drawing code, and skip the native screen handler, then we have some more options. The first thing that crossed my mind was
+using a higher bit-depth. We could design our own system using 5-bit color (32-color palette), or even 6-bit color (64 colors).
+That would definitely be enough colors! And it would probably leave us with enough memory (6-bit color means four pixels every
+three bytes, so 15,360 bytes). However, computers work in bytes always, so we would have to use bitwise operations to extract
+each pixel. This will introduce some performance overhead, but it's hard to say how much because the Gamebuino library is
+already designed to convert a 4-bit palette to "real" 16-bit color before writing to the screen. Shifting & masking any other
+number of bits won't necessarily perform worse, but affecting several bytes at a time might (with 4-bit, you can fit two pixels
+into a single byte; with 6-bit, pixels are often split between two bytes).
+
+Alternatively, we can try palette-swapping. Low bit-depth means we have to map a handful of colors to all of the possible
+values one pixel represents -- creating a palette. That palette can change at "any time", though. Many older games load
+different palettes when different objects enter the screen -- objects that will never be on-screen together. For example, we
+could have three green colors for grassy/jungly islands, and change those colors to grayscale for snow/icecaps. However,
+we already know the environment needs at least 16 colors, that could *all* be on-screen together. What we really need is a way
+to swap the palette *while rendering*. Now -- if we swap the palette mid-render, we still only have 16 colors; we've just
+overwritten some. But perhaps we could render one object at a time, with each object having its own 16-color palette, then
+immediately convert that to "real" color, draw it to the screen, and then re-use that memory to render the next object.
+
+*(This next paragraph examines a potential optimization in drawing the screen. The conclusion is "it's not possible", so feel
+free to skip it if it's not interesting.)*
+The Gamebuino relies on a Direct Memory Access (DMA) to the screen, so we could be rendering the next object while drawing the
+previous one, but we'd need to switch between two separate memory buffers (as to not interfere with the draw cycle).
+Will two "small" buffers be small enough? Ideally, we want to use **less than 16KiB for the screen**. The entire screen, in
+4-bit color, takes 10KiB, so a prefab with six parallax layers would take 60KiB. When rendering a prefab in "real" color, it
+gets flattened to a single layer (so divide by 6), but 16-bit color takes four times as much space (and we multiply by four).
+So the largest a prefab can be, to fit into 16KiB, is 'x' in `x+(4x/6)=16`. It turns out that `x=9.6` KiB. To represent this
+as a percentage of the screen, we want to divide 9.6 into its 6 layers: a single layer is 1.6KiB, which is 16% of the screen
+(10KiB). A foreground object needs to be *big*, to get a lot of screen coverage (appearing closer to the screen), and it won't
+look detailed if we take small sprites and upscale them. It looks like we can't take complete advantage of the DMA this way.
+
+We'd have to do it more like the Gamebuino already does, where we translate pixels to real color one row at a time, and
+translate the next row while drawing the previous one. But there's another problem. When working with an entire screen in
+memory, we can prevent overwriting an already-drawn pixel by checking each pixel to see if we've drawn there already. The
+actual screen, though, is write-only, so this method of drawing one object at a time means we risk overdrawing (which is a
+performance hit, and it could also cause distant objects to appear in front of close ones). The best we could hope for is
+strictly locking objects to a grid where there's no overlap, which simply isn't possible with parallax layers.
+
+It looks like our best option, right now, is writing our own screenbuffer with 6-bit color. Foundationally speaking, this will
+probably involve subclassing the Gamebuino `Graphics` class, like their display buffer does, and writing routines that map
+coordinates to 6-bit-wide pixels. This will be separate from our "rendering" code which will determine the appropriate location
+for each pixel we draw, scaling each parallax layer differently. Prefabs, as aforementioned, will have their own class too,
+and layers might be an array of Gamebuino `Image`s, if possible. If we proceed with 6-bit color, I'll need to reserve a range
+of colors for different domains -- environment colors, sprite colors, menu colors, etc.
+
+There are other things to explore in the coming days. How well will parallax scrolling look? Will I need to write a tool to
+convert layered pictures into prefabs? What will water look like? Regarding water -- I can cheat a "little", but it needs to
+feature some kind of dynamic generation. Waves need to be varied, and taller in worse weather, shorter near shores, etc. I'm
+thinking I'll find a simple formula to generate the front-most wave, then copy it and scroll it for the following parallax
+layers. I don't need a complete fluid simulation -- I know that won't perform well -- but it can't look "sprite-based".
+
+To close out this very lengthy `.plan`, as a bonus I'm going to discuss my initial thoughts on a system for instruments.
+Sea of Thieves features a concertina (like an accordion), a hurdy-gurdy, and a drum (and hopefully, some day, a banjo!).
+Rare's sound director is awesome and has composed a lovely score. I, too, am awesome, but I'm not a musician. In Sea of Thieves,
+you hold down `Mouse1` and music comes out; others can join in and make harmony. I'll already, probably, have to turn to
+friends and freelance artists to make a couple good tunes. But I think instruments are novel and I want to include them somehow.
+So I thought, why not allow the player to play their own music? The Gamebuino has two buttons, `A` and `B`, as well as a D-pad:
+six inputs, three can be pressed together. After consulting some of my musician friends, it doesn't sound infeasible to let
+the player "tune" their instrument by selecting the key they want to play in; then binding the root note, and the fifth, to
+`A` and `B`, as they're the most "chordable" notes. Then the second, third, fourth, and sixth scale degrees are bound to the
+D-pad; we ignore the seventh as it's, statistically, the note least-likely to appear in a song. We need the `MENU` button to
+allow players to put away their instrument, but I think it sounds fine to press `MENU` to alternate between a high/low octave,
+and hold `MENU` some seconds to exit. This isn't a high priority, but it's the second thing I'd like to demo so I know early
+on whether it's worth investing any serious time into.
