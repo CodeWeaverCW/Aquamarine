@@ -1,0 +1,53 @@
+Whew, what a day. Woke up early and visited IKEA with my mother. Ate breakfast at their cafe, then started coding on my
+laptop, and stayed for lunch. The power of Sweden imbues me with thought. Probably solar-power, at that.
+
+I spent hours poring over the Gamebuino META `Graphics` and `Image` classes. So far, my intuition has been rewarded: `Graphics`
+was carefully written to be subclassed. It took me literally all day to reach this conclusion, reviewing Gamebuino's code, but
+the big breakthrough I discovered is that `Graphics` exposes two abstract methods, `_drawPixel()` and `drawBufferedLine()`.
+The rest of the Graphics class is predicated on these two methods; so you *must* define your own implementation, for "how to
+draw a pixel" and "how to draw from a buffer", and the entire rest of the Graphics functions work around it. This is... exactly
+what I wanted to do, to interface with a 6-bit-color buffer. By the end of the day, I've initialized my `Image6bit` class. 
+
+As a matter of fact, this is how the Gamebuino library itself does it, too. `Graphics` is a semi-pure class, whereas `Image` is
+the "real", derived class that represents the screenbuffer, and sprites. `Image` specifically adds support for animations and
+loading various data formats. This is compoundingly good design because, now, I can use my `Image6bit` for the screenbuffer,
+and add support for drawing Gamebuino `Image`s onto mine, like a canvas. The only reason for `Image6bit`'s existence is because
+an entire screenbuffer takes up more memory than the Gamebuino has, but smaller sprites have no need to be encoded in such a
+complicated way.
+
+I'm going to focus on developing this out first (even though it's not what I want demo'ed by Saturday), and once it's done, I
+might put it in its own repository, where it can be used by others as a Gamebuino library. I'm taking some care to keep it
+compatible with `Image`s for this reason.
+
+The thing that excites me about `Graphics` is that, to put it this way, it's been designed so that "independent" code is
+separated from "dependent" code. This is a virtue I've seen before in DOOM's codebase -- for example, there were rich rendering
+modules that called a thin wrapper of "platform-dependent" code. This way, porting DOOM could, at best, be a simple matter of
+rewriting the platform-dependent functions; and, through very careful design, you can minimize the "dependent" code and
+maximize the "independent" code through abstraction, generating very little work for future programmers. In the case of
+`Graphics`, there were two abstract methods, implementation-dependent. Then there were several methods that subclasses were
+"allowed" to override "for device-specific behavior"; otherwise "generic versions would be used", and these generic versions
+ultimately depended on the two implemented functions. In my case, I have to override one of these functions, too, due to
+fundamental changes I'm making to the class, and I have the freedom to stop there and not reinvent the rest of the class.
+Curiously, there were a wide set of "do not override" functions that belong strictly to `Graphics`, but you know what? To truly
+leverage the `Graphics` code, I don't need to redefine these. If I did, it's possible I'd be meaning to write a new class
+entirely.
+
+They say 90% of programming is thinking/designing, and 10% is actually writing code. Today definitely fits the bill. I had to
+make extra-sure of what methods I would need to override, and at the end of the day, the only code I've actually implemented
+so far is the constructor. I'll do my best to knock out the rest in the next two days, including any debugging. Luckily, I
+already know most of what I want to write, and any blanks can easily be filled in by looking to Gamebuino's code for reference.
+Then, hopefully, Wednesday-Friday I'll get a parallax demo going!
+
+I realized late last night that I misguided myself when I imagined prefab objects spanning six parallax layers. I said the
+entire game would probably exist in six layers, but that's foregrounds, sprite layer, and backgrounds. I think it's reasonable
+to expect prefabs to limit themselves. Granted, one could make a "doorway" by surrounding the sprite layer, so I don't think
+it's necessary to constrain prefabs to either "foreground" or "background", but wherever they choose to sit, they ought to take
+no more than 3-4 layers. (I'm already expecting to handle the water separately and not as a prefab.) Yesterday I opined that
+I could not try drawing one object at a time because a 6-layer prefab would take too much memory, and this may have been a moot
+point. It's *still* an egregious idea, but for the other reason I described (overdraw/overlap problems).
+
+On a bonus note for today: The Shanghai Dragons have won the Stage 3 playoffs! Watching this game (and travelling to IKEA) is
+the only thing I did today besides coding. This may mean nothing to you (Wikipedia for the curious), but I like to include the
+non-coding thoughts with the coding thoughts to establish context. It's less about me writing a diary and more about putting a
+human behind all the design choices and discussions. History, too -- I read my own `.plan` files several times over, because
+I really do treat it like design documentation, and it's fun to put it in a frame of reference.
