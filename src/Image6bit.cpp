@@ -17,11 +17,40 @@ Image6bit::Image6bit(int16_t w, int16_t h) : Gamebuino_Meta::Graphics(w,h) {
 	*/
 	_buffer = gb_malloc(uint16_t(w*h*3/4+1));
 }
-Image6bit::~Image6bit();
+Image6bit::~Image6bit() {
+	gb_free(_buffer);
+	_buffer = nullptr;
+}
 
 
 void Image6bit::_drawPixel(int16_t x, int16_t y) {
+	if (!_buffer)
+		return;
+	if ((x<0) || (y<0) || (x>=_width) || (y>=_height))
+		return;
 
+	// Four pixels fit evenly into every three bytes; mask off differently based on pixel mask
+	switch (x % 4) {
+		case 0:
+			uint8_t mask = 0xFC;
+			uint8_t addr = (_width+1) * 3/4 * y + (x * 3/4);
+			_buffer[addr] ^= mask & (uint8_t)color.iu<<2;
+			break;
+
+		case 1:
+			uint16_t mask = 0x03F0;
+			// If color index is <= 15, do simple mask instead
+			break;
+
+		case 2:
+			uint16_t mask = 0x0FC0;
+			// If color index % 4 is 0, do simple mask instead
+			break;
+
+		case 3:
+			uint8_t mask = 0x3F;
+			break;
+	}
 }
 
 void Image6bit::drawBufferedLine(int16_t x, int16_t y, uint16_t *buffer, uint16_t w, Image& img) {
