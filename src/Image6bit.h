@@ -47,7 +47,7 @@ public:
 	bool save(char* filename);
 
 private:
-	uint8_t* _buffer;	// Actual pixel data buffer
+	uint8_t* _buffer = nullptr;	// Actual pixel data buffer
 }
 
 
