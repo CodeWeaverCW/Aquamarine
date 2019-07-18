@@ -30,25 +30,41 @@ void Image6bit::_drawPixel(int16_t x, int16_t y) {
 		return;
 
 	// Four pixels fit evenly into every three bytes; mask off differently based on pixel mask
+	uint8_t addr = (_width+1) * 3/4 * y + (x * 3/4);
+	uint8_t colour = this.color.iu | this.color.i;	// Going with "colour" to distinguish from class member "color"
 	switch (x % 4) {
 		case 0:
-			uint8_t mask = 0xFC;
-			uint8_t addr = (_width+1) * 3/4 * y + (x * 3/4);
-			_buffer[addr] ^= mask & (uint8_t)color.iu<<2;
+			// 11111100 00000000 00000000
+			_buffer[addr] &= 0x3;	// clear
+			_buffer[addr] |= colour<<2;	// set
 			break;
 
 		case 1:
-			uint16_t mask = 0x03F0;
-			// If color index is <= 15, do simple mask instead
+			// 00000011 11110000 00000000
+			// clear
+			_buffer[addr] &= 0xFC;
+			_buffer[addr+1] &= 0xF;
+
+			// set
+			_buffer[addr] |= colour>>4;
+			_buffer[addr+1] |= colour<<4;
 			break;
 
 		case 2:
-			uint16_t mask = 0x0FC0;
-			// If color index % 4 is 0, do simple mask instead
+			// 00000000 00001111 11000000
+			// clear
+			_buffer[addr] &= 0xF0;
+			_buffer[addr+1] &= 0x3F;
+
+			// set
+			_buffer[addr] |= colour>>2;
+			_buffer[addr+1] |= colour<<6;
 			break;
 
 		case 3:
-			uint8_t mask = 0x3F;
+			// 00000000 00000000 00111111
+			_buffer[addr] &= 0xC0;	// clear
+			_buffer[addr] |= colour;	// set
 			break;
 	}
 }
