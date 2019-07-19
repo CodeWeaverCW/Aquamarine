@@ -10,6 +10,9 @@ Image6bit is a library designed for the Gamebuino META, to draw graphics in 6-bi
 
 
 Image6bit::Image6bit(int16_t w, int16_t h) : Gamebuino_Meta::Graphics(w,h) {
+	// Init
+	colorMode = ColorMode::index;
+
 	/*
 	Allocate space for the image buffer.
 	We can store 4 pixels every 3 bytes, so we're allocating 3/4 of `w*h` bytes.
