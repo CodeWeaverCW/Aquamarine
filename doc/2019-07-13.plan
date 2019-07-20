@@ -13,7 +13,7 @@ this community. It is my hope that Aquamarine, in any state of progress, can ser
 programming. I aim to create a technically-impressive game in honor of Rare's amazing work (Sea of Thieves, Banjo-Kazooie,
 Donkey Kong Country, Battletoads, etc). My favorite kind of "technically impressive" is taking a restrictive system and doing
 the unthinkable with it. Squeezing out more optimization and features than you're expected to. The Gamebuino is powered by
-the Arduino Zero board, so we're dealing with C/C++03, 256KiB Flash (ROM), and 32KiB RAM. Included is a 160x128 OLED screen
+the Arduino Zero board, so we're dealing with C/C++11, 256KiB Flash (ROM), and 32KiB RAM. Included is a 160x128 OLED screen
 and a MicroSD card slot (and buttons, lighting, libraries, etc).
 
 First and foremost, we're making an open-world pirate game. That means water is going to be on-screen constantly, so it's
