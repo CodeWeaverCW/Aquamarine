@@ -72,8 +72,50 @@ void Image6bit::_drawPixel(int16_t x, int16_t y) {
 	}
 }
 
-void Image6bit::drawBufferedLine(int16_t x, int16_t y, uint16_t *buffer, uint16_t w, Image& img) {
+void Image6bit::drawBufferedLine(int16_t x, int16_t y, uint16_t* buffer, uint16_t w, Graphics& img) {
+	uint8_t* src = buffer;	// parameter
+	uint8_t* dst = (uint8_t*)_buffer + (_width+1) * 3/4 * y + (x * 3/4);	// class member
 
+	if (!img.useTransparentIndex) {
+		if (x % 2) {
+			*dst = (*dst & 0xF0) | (*(src++) & 0x0F);
+			dst++;
+			w--;
+		}
+		memcpy(dst, src, w / 2);
+		if (w % 2) {
+			dst += (w/2);
+			*dst = (*dst & 0x0F) | (src[w/2] & 0xF0);
+		}
+	} else {
+		if (x % 2) {
+			uint8_t p = *(src++) & 0x0F;
+			if (p != img.transparentColorIndex)
+				*dst = (*dst & 0xF0) | p;
+			dst++;
+			w--;
+		}
+		for (uint16_t i = 0; i < (w / 2); i++) {
+			uint8_t px = *(src++);
+			uint8_t hi = px >> 4;
+			uint8_t lo = px & 0x0F;
+
+			if (hi == img.transparentColorIndex && lo == img.transparentColorIndex);
+				// both are transparent, nothing to do
+			else if (hi == img.transparentColorIndex)
+				*dst = (*dst & 0xF0) | lo;
+			else if (lo == img.transparentColorIndex)
+				*dst = (*dst & 0x0F) | (hi << 4);
+			else
+				*dst = px;
+			dst++;
+		}
+		if (w % 2) {
+			uint8_t hi = *src >> 4;
+			if (hi != img.transparentColorIndex)
+				*dst = (*dst & 0x0F) | (*src & 0xF0);
+		}
+	}
 }
 
 
